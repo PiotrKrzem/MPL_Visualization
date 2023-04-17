@@ -30,7 +30,8 @@ MODEL_DEPTH_PX = 40
 MODEL_NEURONS_DISTANCE_PX_FIRST_LAST_LAYER = 5
 MODEL_NEURONS_DISTANCE_PX = 20
 NOISE_AMOUNT = MODEL_NEURONS_DISTANCE_PX // 10
-
+NOISE_AMOUNT = 0
+SEAPARATE_FIRST_LAST_LAYER = 2
 @dataclass
 class NeuronMarkersData:
     xyz: List[np.ndarray]
@@ -73,6 +74,8 @@ class Visualization:
         self.axis.set_yticks([])
         self.axis.set_zticks([])
         self.axis.set_axis_off()
+        self.axis.set_facecolor([0.1,0.1,0.1])
+        self.figure.set_facecolor([0.1,0.1,0.1])
 
     def prepare_markers(self):
         layer_width_div = MODEL_DEPTH_PX // (len(self.model.layers) - 1)
@@ -84,6 +87,7 @@ class Visualization:
                 x_start_value = int(-MODEL_NEURONS_DISTANCE_PX_FIRST_LAST_LAYER * side_length / 2)
                 x_grid = np.linspace(0, MODEL_NEURONS_DISTANCE_PX_FIRST_LAST_LAYER * side_length, side_length) + x_start_value
                 y_grid = np.full((x_grid.shape[0]), layer_width_div * layer_idx)
+                y_grid += -layer_width_div * SEAPARATE_FIRST_LAST_LAYER if not layer_idx else layer_width_div * SEAPARATE_FIRST_LAST_LAYER
                 z_grid = np.zeros((x_grid.shape[0]))
             else:
                 approx_side_length = np.log2(layer.output_size)
@@ -106,7 +110,7 @@ class Visualization:
             neuron_markers = self.axis.scatter(
                 x_grid, y_grid, z_grid,
                 marker='s', zorder = 2, s = 64,
-                color='black', alpha=1
+                color='white', alpha=1
             )
             self.layers_neurons_data.append(
                 NeuronMarkersData(
@@ -150,17 +154,17 @@ class Visualization:
             )
 
     def update(self):
-        output = np.random.rand(self.model.layers[0].output_size)
+        output = np.random.rand(self.model.layers[0].output_size) #TODO SWAP with data or smth
         for layer_idx, layer in enumerate(self.model.layers):
             output_size = layer.output_size
-            weights_size = np.multiply(*layer.weights.shape)
-            output = np.random.rand(output_size) #TODO REMOVE
+            output = np.random.rand(output_size) #TODO REMOVE and activate stuff below
             # if layer_idx:
             #     output = layer(output)
-            # else:
-            #     blablabla
 
-            color = np.ones((output_size, 3)) * np.tile(output[np.newaxis].T, 3)
+            # if layer_idx == 0 or layer_idx == len(self.model.layers) - 1:
+            color = np.tile(np.array([[1,1,1]]), (output_size, 1)) * np.tile(output[np.newaxis].T, 3)
+            # else:
+            #     color = np.tile(np.array([[0,0,1]]), (output_size, 1)) * np.tile(output[np.newaxis].T, 3)
             # color = np.maximum(color, 0.5)
             alpha = np.ones((output_size, 1))
             color_rgba = np.hstack((color, alpha))
@@ -172,9 +176,13 @@ class Visualization:
             # color_rgba = np.hstack((color, alpha))
             # self.layers_connections_data[layer_idx - 1].marker.set_color(color_rgba)
 
-            if not layer_idx: continue
-            
+            if layer_idx == len(self.model.layers) - 1: break
 
+            next_layer_output_size = self.model.layers[layer_idx + 1].output_size
+            color_rgba = np.tile(color_rgba, (1,1,next_layer_output_size)).reshape(output_size * next_layer_output_size,4)
+            widths = np.tile(output, (1,next_layer_output_size)).reshape(output_size * next_layer_output_size)
+            self.layers_connections_data[layer_idx].marker.set_color(color_rgba) # NOT layer_idx + 1 because this array's size is one less
+            self.layers_connections_data[layer_idx].marker.set_linewidth(widths)
         self.figure.canvas.draw()
 
     def on_key_press(self, event):
