@@ -8,18 +8,27 @@ class LayerActivation(Enum):
     RELU = lambda input: np.multiply(input, input > 0)
     TANH = lambda input: np.tanh(input)
 
+class LayerInitialization(Enum):
+    RANDOM = lambda shape: np.random.rand(*shape)
+    GLOROT = lambda shape: None # TODO
+
 class Layer:
-    def __init__(self, neurons: int, activation: LayerActivation) -> None:
+    ID = 0
+    def __init__(self, neurons: int, activation: LayerActivation, initialization: LayerInitialization) -> None:
         self.input_size: int
         self.output_size: int = neurons
         self.weights: np.ndarray
         self.biases: np.ndarray
-        self.activation = activation.value
+        self.activation = activation
+        self.initialization = initialization
+
+        self.id = Layer.ID
+        Layer.ID += 1
 
     def __construct__(self, input_size):
         self.input_size = input_size
-        self.weights = np.zeros((self.input_size, self.output_size))
-        self.biases = np.zeros((self.output_size, 1))
+        self.weights = self.initialization((self.input_size, self.output_size))
+        self.biases = self.initialization((self.output_size, 1))
 
     def __call__(self, inputs: np.ndarray) -> np.ndarray:
         return self.activation(np.dot(self.weights, inputs) + self.biases)
