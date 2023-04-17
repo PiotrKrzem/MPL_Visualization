@@ -1,17 +1,17 @@
-from layer import LayerActivation, Layer
-from model import Model
+from domain.layer import LayerActivation, Layer
+from domain.model import Model
 from typing import List
 from input import TrainingData
 
 # DEFAULT PARAMETERS (IF NOT SPECIFIED BY THE USER)
 
-DEF_HIDDEN_LAYER_NO = 2
-DEF_NEURON_NO = [10, 10]
+DEF_HIDDEN_LAYER_NO = 1
+DEF_NEURON_NO = [10, 5]
 DEF_ACTIVATION_FUNC = LayerActivation.SIGMOID
 DEF_BATCH_SIZE = 10
-DEF_EPOCHS = 1000
+DEF_EPOCHS = 10000
 DEF_LEARNING_RATE = 0.01
-DEF_MOMENTUM = 0.5
+DEF_MOMENTUM = 0.1
 
 
 
@@ -22,7 +22,7 @@ def initialize_model(hidden_layer_no: int,
                      classes_no: int) -> Model:
     
     hidden_layers = [Layer(neuron_no[idx], activation_func) for idx in range(hidden_layer_no)]
-    output_layer = [Layer(classes_no, activation_func)]
+    output_layer = [Layer(classes_no, LayerActivation.SOFTMAX)]
     layers = [*hidden_layers, *output_layer]
 
     return Model(layers, input_size)

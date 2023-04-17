@@ -4,13 +4,13 @@ from enum import Enum
 
 class Activation(Enum):
     SIGMOID = lambda input: 1/(1 + np.exp(-input))
-    SOFTMAX = lambda input: np.exp(input)/ np.sum(np.exp(input), axis=1, keepdims=True)
+    SOFTMAX = lambda input: np.exp(input) / np.sum(np.exp(input), keepdims=True)
     RELU = lambda input: np.multiply(input, input > 0)
     TANH = lambda input: np.tanh(input)
 
 class ActivationDer(Enum):
     SIGMOID = lambda input: Activation.SIGMOID(input) * (1 - Activation.SIGMOID(input))
-    SOFTMAX = lambda input: Activation.SOFTMAX(input)
+    SOFTMAX = lambda input: Activation.SOFTMAX(input) * (1 - Activation.SOFTMAX(input))
     RELU = lambda input: [0 if val < 0 else 1 for val in input]
     TANH = lambda input: 1 - Activation.TANH(input)**2
 
@@ -30,12 +30,12 @@ class Layer:
 
     def __construct__(self, input_size):
         self.input_size = input_size
-        self.weights = np.random.sample((self.output_size, self.input_size))
-        self.biases = np.random.sample(self.output_size)
+        self.weights = np.random.rand(self.output_size, self.input_size)
+        self.biases = np.random.rand(self.output_size)
 
     def __call__(self, inputs: np.ndarray) -> np.ndarray:
-        return self.activation(np.dot(self.weights, inputs) + self.biases, False)
+        return self.activation(np.dot(self.weights, inputs) + self.biases, der=False)
     
     def __update_weights__(self, weight_diff: np.ndarray, bias_diff: np.ndarray):
-        self.weights = self.weights - weight_diff
+        self.weights = self.weights - weight_diff.reshape(self.output_size, self.input_size)
         self.biases = self.biases - bias_diff
