@@ -10,6 +10,7 @@ from typing import Any, List, Tuple, Dict
 
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
+from mpl_toolkits.mplot3d.axes3d import Axes3D
 from matplotlib.gridspec import GridSpec as GridSpec
 from matplotlib.gridspec import GridSpecFromSubplotSpec as Grid
 
@@ -21,22 +22,20 @@ from random import seed as r_seed, randint
 from numpy.random import seed as n_seed
 r_seed(69), n_seed(69)
 
-MODEL_DEPTH_PX = 1000
+MODEL_DEPTH_PX = 100
+MODEL_NEURONS_DISTANCE_PX_FIRST_LAST_LAYER = 5
 MODEL_NEURONS_DISTANCE_PX = 10
 
 @dataclass
-class NeuronMarkerData:
-    xyz: List[int]
-    layer_idx: int
-    neuron_idx: int
+class NeuronMarkersData:
+    xyz: List[np.ndarray]
+    layer: Layer
     marker: Any # I'm lazy
 
 @dataclass
 class ConnectionMarkerData:
     src_layer_idx: int
     dst_layer_idx: int
-    src_neuron_idx: int
-    dst_neuron_idx: int
     marker: Any # I'm lazy
 
 class Visualization:
@@ -53,7 +52,7 @@ class Visualization:
         self.figure.canvas.mpl_connect('button_press_event', self.on_mouse_press)
         self.figure.canvas.mpl_connect('close_event', self.on_exit)
 
-        self.axis = self.figure.add_subplot(111, projection='3d')
+        self.axis:Axes = self.figure.add_subplot(111, projection='3d')
         self.axis.spines['bottom'].set(color = 'white', linewidth = 3)
         self.axis.spines['top'].set(color = 'white', linewidth = 3)
         self.axis.spines['left'].set(color = 'white', linewidth = 3)
@@ -61,67 +60,69 @@ class Visualization:
         self.axis.set_xlabel('X Label')
         self.axis.set_ylabel('Y Label')
         self.axis.set_zlabel('Z Label')
-        self.figure.add_subplot(self.axis)
 
     def prepare_markers(self):
         layer_width_div = MODEL_DEPTH_PX // (len(self.model.layers) - 1)
 
-        self.neuron_markers: List[List[NeuronMarkerData]] = []
+        self.layers_neurons_data: List[NeuronMarkersData] = []
         for layer_idx, layer in enumerate(self.model.layers):
-            approx_side_length = np.log2(layer.output_size)
-            side_length = int(approx_side_length) + (1 if approx_side_length > int(approx_side_length) else 0)
-            side_length = 1 if layer.output_size <= 3 else side_length
-            xy_start_value = -MODEL_NEURONS_DISTANCE_PX * side_length // 2
+            if layer_idx == 0 or layer_idx == len(self.model.layers) - 1:
+                side_length = layer.output_size
+                x_start_value = int(-MODEL_NEURONS_DISTANCE_PX_FIRST_LAST_LAYER * side_length / 2)
+                x_grid = np.linspace(0, MODEL_NEURONS_DISTANCE_PX_FIRST_LAST_LAYER * side_length, side_length) + x_start_value
+                y_grid = np.full((x_grid.shape[0]), layer_width_div * layer_idx)
+                z_grid = np.zeros((x_grid.shape[0]))
+            else:
+                approx_side_length = np.log2(layer.output_size)
+                approx_side_length_incr = 1 if approx_side_length > int(approx_side_length) else 0
+                side_length = int(approx_side_length) + approx_side_length_incr
+                xz_start_value = -MODEL_NEURONS_DISTANCE_PX * side_length // 2
+                x_range = np.linspace(0, MODEL_NEURONS_DISTANCE_PX * side_length, side_length) + xz_start_value
+                z_range = np.linspace(0, MODEL_NEURONS_DISTANCE_PX * side_length, side_length) + xz_start_value
+                x_grid, z_grid = np.meshgrid(x_range, z_range)
+                x_grid, z_grid = x_grid.flatten(), z_grid.flatten()
+                y_grid = np.full((x_grid.shape[0]), layer_width_div * layer_idx)
 
-            layer_neuron_markers = []
-            layer_connection_markers = []
+            neuron_markers = self.axis.scatter(
+                x_grid, y_grid, z_grid,
+                marker='s', color ='black', zorder = 2, s = 64
+            )
 
-            for neuron_idx in range(side_length*side_length):
-                if neuron_idx >= layer.output_size: break
-
-                x = xy_start_value + (neuron_idx % side_length) * MODEL_NEURONS_DISTANCE_PX
-                z = xy_start_value + (neuron_idx // side_length) * MODEL_NEURONS_DISTANCE_PX
-                y = layer_width_div * layer_idx
-
-                neuron_square_marker = self.axis.scatter(
-                    [x], [y], [z],
-                    marker='s', color ='red', zorder = 2, s = 64
+            self.layers_neurons_data.append(
+                NeuronMarkersData(
+                    (x_grid, y_grid, z_grid),
+                    layer,
+                    neuron_markers
                 )
-                layer_neuron_markers.append(
-                    NeuronMarkerData(
-                        (x, y, z), 
-                        layer_idx, 
-                        neuron_idx, 
-                        neuron_square_marker
-                    )
+            )
+
+        self.layers_connections_markers: List[ConnectionMarkerData] = []
+        for layer_idx, dst_neurons_data in enumerate(self.layers_neurons_data):
+            if not layer_idx: continue
+
+            x,y,z = dst_neurons_data.xyz
+            src_neurons_data = self.layers_neurons_data[layer_idx - 1]
+            dst_x = np.tile(x, src_neurons_data.layer.output_size)
+            dst_y = np.tile(y, src_neurons_data.layer.output_size)
+            dst_z = np.tile(z, src_neurons_data.layer.output_size)
+
+            tile_amount = x.shape[0]
+            x,y,z = src_neurons_data.xyz
+            src_x = np.tile(x[np.newaxis].T, (1,tile_amount)).flatten()
+            src_y = np.tile(y[np.newaxis].T, (1,tile_amount)).flatten()
+            src_z = np.tile(z[np.newaxis].T, (1,tile_amount)).flatten()
+
+            connection_markers = self.axis.quiver(
+                src_x, src_y, src_z,
+                dst_x - src_x, dst_y - src_y, dst_z - src_z
+            )
+            self.layers_connections_markers.append(
+                ConnectionMarkerData(
+                    layer_idx - 1, 
+                    layer_idx, 
+                    connection_markers
                 )
-            self.neuron_markers.append(layer_neuron_markers)
-
-        self.connections_markers: List[List[ConnectionMarkerData]] = []
-        for neuron_layer_idx in range(1,len(self.neuron_markers)):
-            for dst_neuron in self.neuron_markers[neuron_layer_idx]:
-                for src_neuron in self.neuron_markers[neuron_layer_idx - 1]:
-                    src_x, src_y, src_z = src_neuron.xyz
-                    dst_x, dst_y, dst_z = dst_neuron.xyz
-                    dx = dst_x - src_x
-                    dy = dst_y - src_y
-                    dz = dst_z - src_z
-                    connection_line_marker = self.axis.quiver(
-                        [src_x], [src_y], [src_z],
-                        [dx], [dy], [dz],
-                        color = 'red', lw = 0.2,
-                    )
-
-                    layer_connection_markers.append(
-                        ConnectionMarkerData(
-                            neuron_layer_idx - 1, 
-                            neuron_layer_idx, 
-                            src_neuron.neuron_idx,
-                            dst_neuron.neuron_idx, 
-                            connection_line_marker
-                        )
-                    )
-            self.connections_markers.append(layer_connection_markers)
+            )
 
     def on_key_press(self, event):
         stdout.flush()
