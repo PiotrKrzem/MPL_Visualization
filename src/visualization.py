@@ -54,13 +54,6 @@ class Visualization:
         self.axis.spines['top'].set(color = 'white', linewidth = 0)
         self.axis.spines['left'].set(color = 'white', linewidth = 0)
         self.axis.spines['right'].set(color = 'white', linewidth = 0)
-        # self.axis.imshow([[0.2, 0.3], [0.8, 0.9]], interpolation='bicubic', cmap=cm.copper, alpha=1)
-        # self.axis.set_xlabel('X Label')
-        # self.axis.set_ylabel('Y Label')
-        # self.axis.set_zlabel('Z Label')
-        # self.axis.set_xlim([-1, 8])
-        # self.axis.set_ylim([-1, 8])
-        # self.axis.set_zlim([-1, 8])
         self.axis.grid(False)
         self.axis.set_xticks([])
         self.axis.set_yticks([])
@@ -82,8 +75,8 @@ class Visualization:
                 y_grid += -layer_width_div * SEAPARATE_FIRST_LAST_LAYER if not layer_idx else layer_width_div * SEAPARATE_FIRST_LAST_LAYER
                 z_grid = np.zeros((x_grid.shape[0]))
             else:
-                approx_side_length = np.log2(layer.output_size)
-                approx_side_length_incr = 1 if approx_side_length > int(approx_side_length) else 0
+                approx_side_length = np.sqrt(layer.output_size)
+                approx_side_length_incr = 1 if int(approx_side_length)*int(approx_side_length) < layer.output_size else 0
                 side_length = int(approx_side_length) + approx_side_length_incr
                 xz_start_value = -MODEL_NEURONS_DISTANCE_PX * side_length // 2
                 x_range = np.linspace(0, MODEL_NEURONS_DISTANCE_PX * side_length, side_length) + xz_start_value
@@ -98,6 +91,10 @@ class Visualization:
                 x_grid += x_noise
                 y_grid += y_noise
                 z_grid += z_noise
+
+            x_grid = x_grid[:layer.output_size]
+            y_grid = y_grid[:layer.output_size]
+            z_grid = z_grid[:layer.output_size]
 
             neuron_markers = self.axis.scatter(
                 x_grid, y_grid, z_grid,

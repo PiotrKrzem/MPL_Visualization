@@ -5,7 +5,7 @@ from src.visualization import *
 m = Model([
     InputLayer(4),
     Layer(16, LayerActivation.SOFTMAX),
-    Layer(16, LayerActivation.SOFTMAX),
+    Layer(32, LayerActivation.SOFTMAX),
     Layer(16, LayerActivation.SOFTMAX),
     Layer(3, LayerActivation.SOFTMAX),
 ])
