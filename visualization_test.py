@@ -7,7 +7,7 @@ m = Model([
     Layer(16, LayerActivation.SOFTMAX),
     Layer(16, LayerActivation.SOFTMAX),
     Layer(16, LayerActivation.SOFTMAX),
-    Layer(4, LayerActivation.SOFTMAX),
+    Layer(3, LayerActivation.SOFTMAX),
 ])
 
 Visualization(m)

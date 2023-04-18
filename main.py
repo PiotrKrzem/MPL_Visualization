@@ -44,9 +44,9 @@ def main() -> None:
     time.sleep(3)
 
     if arguments.batch_size == 0:
-        model.__train_stochastic__(arguments.epochs, inputs, outputs, arguments.learning_rate, arguments.momentum)
+        model.__train_stochastic__(arguments.epochs, inputs, outputs, arguments.learning_rate, arguments.momentum, arguments.early_stopping)
     else:
-        model.__train_batches__(arguments.epochs, inputs, outputs, arguments.learning_rate, arguments.momentum, arguments.batch_size)
+        model.__train_batches__(arguments.epochs, inputs, outputs, arguments.learning_rate, arguments.momentum, arguments.early_stopping, arguments.batch_size)
 
 if __name__ == "__main__":
     main()

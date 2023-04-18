@@ -122,9 +122,12 @@ class Model:
                              inputs: np.ndarray, 
                              expected_outputs: np.ndarray, 
                              learn_rate: float, 
-                             momentum: float) -> None:
+                             momentum: float,
+                             early_stopping_threshold) -> None:
         
         # iterating based on the number of epochs
+        early_stopping = early_stopping_threshold
+        previous_accuracy = 0
         for epoch in range(epochs):
             total_loss = 0          # total loss for a given epoch
             results = []            # results obtained for epoch (used to compute the accuracy)
@@ -147,7 +150,16 @@ class Model:
 
             # computing accuracy and printing results of the iteration
             accuracy = compute_accuracy(expected_outputs, results)
+            if accuracy <= previous_accuracy:
+                early_stopping -= 1
+            else:
+                early_stopping = early_stopping_threshold
+            previous_accuracy = accuracy
+
             print(f"Epoch: {epoch}, Accuracy: {accuracy}, Loss: {total_loss}")
+            if not early_stopping:
+                print(f"-- Early stopping --")
+                break
 
 
     # Method trains the model in a mini-batch manner (meaning that the data is divided into batches and weights are updated after a given batch is processed)
@@ -164,12 +176,15 @@ class Model:
                           inputs: np.ndarray, 
                           expected_outputs: np.ndarray, 
                           learn_rate: float, 
-                          momentum: float, 
+                          momentum: float,
+                          early_stopping_threshold: int,
                           batch_size: int) -> None:
         # dividing data into batches
         batches = divide_data_to_batches(inputs, batch_size)
 
         # iterating based on the number of epochs
+        early_stopping = early_stopping_threshold
+        previous_accuracy = 0
         for epoch in range(epochs):
             total_loss = 0                  # total loss for a given iteration
             correct_predictions = 0         # number of correct predictions (used in the accuracy)
@@ -205,6 +220,15 @@ class Model:
 
             # computing accuracy and printing result of the iteration
             accuracy = correct_predictions / len(expected_outputs)
+            if accuracy <= previous_accuracy:
+                early_stopping -= 1
+            else:
+                early_stopping = early_stopping_threshold
+            previous_accuracy = accuracy
+
             print(f"Epoch: {epoch}, Accuracy: {accuracy}, Loss: {total_loss}")
+            if not early_stopping:
+                print(f"-- Early stopping --")
+                break
 
 

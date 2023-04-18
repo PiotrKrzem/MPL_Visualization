@@ -38,6 +38,7 @@ class Arguments:
         self.learning_rate = 0.001
         self.momentum = 0.1
         self.dataset = TrainingData.LENSES
+        self.early_stopping = 3
 
 def parse_args():
     opts, _ = getopt.getopt(sys.argv[1:], "h:n:f:b:e:l:m:d:")
@@ -68,6 +69,9 @@ def parse_args():
         elif opt == '-d':
             arguments.dataset = get_dataset_by_name(arg)
             print (f'Dataset: {arg}')
+        elif opt == '-s':
+            arguments.dataset = int(arg)
+            print (f'Early stopping: {arg}')
 
     assert(arguments.hidden_layers_no == len(arguments.neurons_no))
     return arguments
