@@ -1,75 +1,209 @@
 import numpy as np
 
 from domain.layer import Layer
-from typing import List
-from accuracy_measures import compute_accuracy, compute_loss
+from typing import List, Tuple
+from accuracy_measures import compute_accuracy, compute_loss, compute_accuracy_for_observation
 
+
+# ----------------------- HELPER METHODS ------------------------------
+
+# Method divides a given input set into batches of the corresponding size
+#
+# Parameters:
+# inputs     - ndarray input to be divided into batches
+# batch_size - desired size of a single batch
+#
+# Returns: ndarray of object batches 
+# (i.e. 
+# batch[i][0] - index of input in original array,
+# batch[i][1] - input data)
+def divide_data_to_batches(inputs: np.ndarray, batch_size: int) -> np.ndarray:
+    batch_no = np.arange(batch_size, len(inputs), batch_size)               
+    inputs_random = np.array(list(enumerate(inputs.copy())), dtype=object)   
+    np.random.shuffle(inputs_random)
+
+    return np.split(inputs_random, batch_no)
+
+
+# -------------------------- NETWORK MODEL ------------------------------
 
 class Model:
+    # Method initialize the network model
+    #
+    # Parameters:
+    # layers     - layers with which the model is constructed
+    # input_size - size of the input data
     def __init__(self, layers: List[Layer], input_size: int) -> None:
         self.layers = layers
 
         for idx, layer in enumerate(self.layers):
             layer.__construct__(layers[idx - 1].output_size if idx else input_size)
 
+    # Method performs forward propagation
+    #
+    # Parameters:
+    # input_row - input data sent to the model
     def __forward__(self, input_row: np.ndarray) -> np.ndarray:
         input = input_row
-        outputs = [input_row]
+        outputs = [input_row]                   # outputs stores corresponding outputs of each layer
 
         for layer in self.layers:
-            input = layer.__call__(input)
-            outputs.append(input)
+            input = layer.__call__(input)       # activating neurons for given input
+            outputs.append(input)               # appending the output of the given layer
 
         return outputs
 
-    def __backward__(self, outputs: List[List[int]], 
+    # Method performs backward propagation in model training
+    #
+    # Parameters:
+    # outputs            - outputs of the output layer obtained after forward propagation
+    # expected_output    - output that was expected for given input data
+    # learn_rate         - learning rate parameter of the model
+    # momentum           - momentum parameter of the model
+    # prev_weights_diffs - amount by which the weights were updated in previous iteration (used along with 
+    #                      momentum)
+    # is_stochastic      - flag indicating if stochastic training is performed (i.e. if the weight are to 
+    #                      be updated for each sample)
+    def __backward__(self, 
+                     outputs: List[List[int]], 
                      expected_output: np.ndarray, 
                      learn_rate: float, 
                      momentum: float,
-                     prev_weights_diffs: List[np.ndarray]) -> List[np.ndarray]:
-        error = None
-        weights_diffs = []
+                     prev_weights_diffs: List[np.ndarray],
+                     is_stochastic: bool) -> Tuple[List[np.ndarray],List[np.ndarray]]:
+        error = None                # initial prediction error
+        weights_diffs = []          # structure storing differences applied to weights per layer
+        bias_diffs = []             # structure storing differences applied to biases per layer
 
+        # iterating over all layers in reversed order (i.e. starting from the output layer)
         for idx, layer in reversed(list(enumerate(self.layers))):
-            activation = layer.activation
-            output = outputs[idx + 1]
-            input = outputs[idx]
+            activation = layer.activation       # activation function assigned to layer
+            output = outputs[idx + 1]           # output of the given layer
+            input = outputs[idx]                # input received by a layer
+
+            # if weights were previously adjusted then take corresponding differences for layer
             prev_weights_diff = prev_weights_diffs[idx] if prev_weights_diffs else 0
 
             if error is None:
-                error = (output - expected_output)
+                error = (output - expected_output)                   # error computed for output layer
             else:
-                error = np.dot(error, self.layers[idx + 1].weights)
+                error = np.dot(error, self.layers[idx + 1].weights)  # error computed for hidden layers
 
+            # multiplying error by derivative of activation (for output produced by the layer)
             delta = error * activation(output, der=True)
         
+            # computing weight and bias differences (Kronecker product is used as the sizes of matrices
+            # have different dimensions)
             weights_diff = learn_rate * np.kron(delta, input) + prev_weights_diff * momentum
             bias_diff = learn_rate * delta
 
-            layer.__update_weights__(weights_diff, bias_diff)
-            weights_diffs.append(weights_diff)
+            # if weights are to be updated for each sample then updating them
+            if is_stochastic == True:
+                layer.__update_weights__(weights_diff, bias_diff)
 
-        return weights_diffs[::-1]
+            # appending computed weights differences to data structures returned by the method
+            weights_diffs.append(weights_diff)
+            bias_diffs.append(bias_diff)
+
+        # reversing order in structures to simplify computations in next iteration of training as back propagation proceeds from the last layer
+        return weights_diffs[::-1], bias_diffs[::-1]
     
 
-    def __train__(self, epochs: int, inputs: np.ndarray, expected_outputs: np.ndarray, learn_rate: float, momentum: float):
-        sample_size = len(inputs)
-
+    # Method trains the model in a stochastic manner (meaning that the data is not divided into batches but considered as one and the weights are updated for each sample)
+    #
+    # Parameters:
+    # epochs           - number of epochs used in the iterations
+    # inputs           - input based on which the model is trained
+    # expected_outputs - output that is expected for given input
+    # learn_rate       - learning rate of the model
+    # momentum         - momentum of the model
+    def __train_stochastic__(self, 
+                             epochs: int, 
+                             inputs: np.ndarray, 
+                             expected_outputs: np.ndarray, 
+                             learn_rate: float, 
+                             momentum: float) -> None:
+        
+        # iterating based on the number of epochs
         for epoch in range(epochs):
-            total_loss = 0
-            results = []
-            weight_diffs = None
+            total_loss = 0          # total loss for a given epoch
+            results = []            # results obtained for epoch (used to compute the accuracy)
+            weight_diffs = None     # differences in weights for given iteration
 
-            for idx in range(sample_size):
-                inputs_sample = inputs[idx]
+            # iterating over all samples
+            for idx in range(len(inputs)):
+                inputs_sample = inputs[idx]         
                 expected_output = expected_outputs[idx]
 
+                # getting predicted output based of forward propagation
                 outputs = self.__forward__(inputs_sample)
-                weight_diffs = self.__backward__(outputs, expected_output, learn_rate, momentum, weight_diffs)
+                # updating weights in backward propagation
+                weight_diffs, _ = self.__backward__(outputs, expected_output, learn_rate, momentum, weight_diffs, is_stochastic=True)
                 
+                # computing total loss
                 total_loss += compute_loss(expected_output, outputs)
+                # appending results for a given output (used in computation of accuracy)
                 results.append(np.argmax(outputs[-1]))
 
+            # computing accuracy and printing results of the iteration
             accuracy = compute_accuracy(expected_outputs, results)
+            print(f"Epoch: {epoch}, Accuracy: {accuracy}, Loss: {total_loss}")
+
+
+    # Method trains the model in a mini-batch manner (meaning that the data is divided into batches and weights are updated after a given batch is processed)
+    #
+    # Parameters:
+    # epochs           - number of epochs used in the iterations
+    # inputs           - input based on which the model is trained
+    # expected_outputs - output that is expected for given input
+    # learn_rate       - learning rate of the model
+    # momentum         - momentum of the model
+    # batch_size       - size of the batches into which the data is divided
+    def __train_batches__(self, 
+                          epochs: int, 
+                          inputs: np.ndarray, 
+                          expected_outputs: np.ndarray, 
+                          learn_rate: float, 
+                          momentum: float, 
+                          batch_size: int) -> None:
+        # dividing data into batches
+        batches = divide_data_to_batches(inputs, batch_size)
+
+        # iterating based on the number of epochs
+        for epoch in range(epochs):
+            total_loss = 0                  # total loss for a given iteration
+            correct_predictions = 0         # number of correct predictions (used in the accuracy)
+
+            # iterating over all batches
+            for batch in batches:
+                # initializing sums used to update weights after a batch is fully processed
+                weight_diff_sum = None
+                bias_diff_sum = None
+                weight_diffs = None
+                
+                # iterating over all samples
+                for idx in range(len(batch)):
+                    inputs_sample = batch[idx][1]
+                    expected_output = expected_outputs[batch[idx][0]]
+
+                    # similar computations to the stochastic method
+                    outputs = self.__forward__(inputs_sample)
+                    weight_diffs, bias_diffs = self.__backward__(outputs, expected_output, learn_rate, momentum, weight_diffs, is_stochastic=False)
+
+                    # updating weight and bias differences sums
+                    weight_diff_sum = weight_diffs if weight_diff_sum is None else [weight_diff_sum[idx] + diffs for idx, diffs in enumerate(weight_diffs)]
+                
+                    bias_diff_sum = bias_diffs if bias_diff_sum is None else [bias_diff_sum[idx] + diffs for idx, diffs in enumerate(bias_diffs)]
+
+                    # computing prediction evaluation meassures
+                    correct_predictions += compute_accuracy_for_observation(expected_output, outputs)
+                    total_loss += compute_loss(expected_output, outputs)
+                
+                # updating weights for each layer after given batch is processed
+                for idx, layer in reversed(list(enumerate(self.layers))):
+                    layer.__update_weights__(weight_diff_sum[idx], bias_diff_sum[idx])
+
+            # computing accuracy and printing result of the iteration
+            accuracy = correct_predictions / len(expected_outputs)
             print(f"Epoch: {epoch}, Accuracy: {accuracy}, Loss: {total_loss}")
 

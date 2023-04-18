@@ -1,5 +1,14 @@
 import numpy as np
 
+# Function verifies if the prediction corresponds to the expected output
+#
+# expected_output - ground truth for the output
+# output - predicted output
+# 
+# Returns: 1 if output is correct, 0 otherwise
+def compute_accuracy_for_observation(expected_output: np.ndarray, output: np.ndarray) -> float:
+    return 1 if np.argmax(expected_output) == np.argmax(output[-1]) else 0
+
 # Function computes the number of correct predictions based on expected output
 #
 # expected_outputs - ground truth for the output
