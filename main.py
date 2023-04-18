@@ -1,10 +1,9 @@
-import time
 from typing import List
 
-from src.argparser import parse_args
-from src.data.loader import train_val_test_split
 from src.domain.model import Model
+from src.argparser import parse_args
 from src.visualization import Visualization
+from src.data.loader import train_val_test_split
 from src.domain.layer import LayerActivation, Layer, InputLayer
 
 # ----------------------- HELPER METHODS ------------------------------
@@ -50,6 +49,7 @@ def main() -> None:
     else:
         model.__train_batches__(arguments.epochs, x_train, y_train, x_val, y_val, arguments.learning_rate, arguments.momentum, arguments.early_stopping, arguments.batch_size)
 
-    Visualization(model)
+    model.__test__(x_test, y_test, print_stats=True)
+    Visualization(model, x_test, y_test)
 if __name__ == "__main__":
     main()

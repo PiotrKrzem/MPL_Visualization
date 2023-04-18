@@ -29,6 +29,6 @@ def compute_accuracy(expected_outputs: np.ndarray, outputs: np.ndarray) -> float
 # Returns: loss for selected sample
 def compute_loss(expected_outputs: np.ndarray, outputs: np.ndarray) -> float:
     output = outputs[-1]
-    error = np.dot(expected_outputs, np.log(output))
+    error = np.sum(expected_outputs*np.log(output+1e-9))
 
     return -error

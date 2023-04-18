@@ -16,9 +16,9 @@ class Activation(Enum):
 class ActivationDer(Enum):
     SIGMOID = lambda input: Activation.SIGMOID(input) * (1 - Activation.SIGMOID(input))
     SOFTMAX = lambda input: Activation.SOFTMAX(input) * (1 - Activation.SOFTMAX(input))
-    RELU = lambda input: [0 if val < 0 else 1 for val in input]
+    RELU = lambda input: input > 0
     TANH = lambda input: 1 - Activation.TANH(input)**2
-    LINEAR = lambda input: 1
+    LINEAR = lambda _: 1
 
 # Enum storing pairs of activation functions (i.e. activation function + its derivative)
 # 

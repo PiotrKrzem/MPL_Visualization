@@ -1,14 +1,15 @@
 import numpy as np
+from os import path
+from enum import Enum
+from typing import Tuple
 from sklearn.model_selection import train_test_split
 
-from os import path
-from typing import Tuple
-from enum import Enum
 
 DIR_NAME = 'downloads'
 LENSES_CLASSES = 3
-CARS_CLASSES = 3
+CARS_CLASSES = 4
 BANKNOTES_CLASSES = 2
+DIGITS_CLASSES = 10
 
 
 def get_file_path(file_name: str) -> str:
@@ -29,6 +30,7 @@ def import_lenses_data() -> Tuple[int, int, np.ndarray, np.ndarray]:
         data = np.loadtxt(lines, delimiter=' ', dtype=np.int64)[:,1:]
 
         inputs = data[:, :-1]
+        inputs = inputs / (inputs.max(axis = 0) + 0.001)
         outputs = np.array([get_output_for_row(label, LENSES_CLASSES) for label in data[:, -1]])
 
         return len(inputs[0]), LENSES_CLASSES, inputs, outputs
@@ -55,9 +57,10 @@ def import_cars_data() -> Tuple[int, int, np.ndarray, np.ndarray]:
             line = line.replace("more","5")
             lines.append(line)
 
-        data = np.loadtxt(lines, delimiter=',', dtype=np.int64)[:,1:]
+        data = np.loadtxt(lines, delimiter=',', dtype=np.int64)
 
         inputs = data[:, :-1]
+        inputs = inputs / (inputs.max(axis = 0) + 0.001)
         outputs = np.array([get_output_for_row(label, CARS_CLASSES) for label in data[:, -1]])
 
         return len(inputs[0]), CARS_CLASSES, inputs, outputs
@@ -70,18 +73,32 @@ def import_banknotes_data() -> Tuple[int, int, np.ndarray, np.ndarray]:
         data = np.loadtxt(lines, delimiter=',', dtype=np.float32)
 
         inputs = data[:, :-1]
+        inputs = inputs / (inputs.max(axis = 0) + 0.001)
         outputs = np.array([get_output_for_row(label, BANKNOTES_CLASSES) for label in data[:, -1]])
 
         return len(inputs[0]), BANKNOTES_CLASSES, inputs, outputs
+    
+def import_digits_data() -> Tuple[int, int, np.ndarray, np.ndarray]:
+    file_path = get_file_path("optdigits.tra")
+
+    with open(file_path) as file:
+        lines = (line for line in file)
+        data = np.loadtxt(lines, delimiter=',', dtype=np.float32)
+
+        inputs = data[:, :-1]
+        inputs = inputs / (inputs.max(axis = 0) + 0.001)
+        outputs = np.array([get_output_for_row(label, DIGITS_CLASSES) for label in data[:, -1]])
+
+        return len(inputs[0]), DIGITS_CLASSES, inputs, outputs
 
 class TrainingData(Enum):
     LENSES = import_lenses_data()
     CARS = import_cars_data()
     BANKNOTES = import_banknotes_data()
+    DIGITS = import_digits_data()
 
 def train_val_test_split(X, Y, train_ratio = 0.8, validation_ratio = 0.1, test_ratio = 0.1):
     assert(train_ratio + validation_ratio + test_ratio == 1.0)
-
 
     # train is now 75% of the entire data set
     x_train, x_test, y_train, y_test = train_test_split(X, Y, test_size=1 - train_ratio)

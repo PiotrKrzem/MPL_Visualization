@@ -18,6 +18,8 @@ def get_activation_func_by_name(name: str) -> LayerActivation:
         return LayerActivation.TANH
     elif name == 'RELU':
         return LayerActivation.RELU
+    elif name == 'LINEAR':
+        return LayerActivation.LINEAR
     
 # Method retrieves data set by name
 #
@@ -31,13 +33,13 @@ class Arguments:
     def __init__(self) -> None:
         # -------------- DEFAULT PARAMETERS (IF NOT SPECIFIED BY THE USER) -----------
         self.hidden_layers_no = 2
-        self.neurons_no = [16, 16]
+        self.neurons_no = [64, 64]
         self.activation_func = LayerActivation.SIGMOID
         self.batch_size = 0
-        self.epochs = 1000
-        self.learning_rate = 0.001
+        self.epochs = 100
+        self.learning_rate = 0.0001
         self.momentum = 0.1
-        self.dataset = TrainingData.LENSES
+        self.dataset = TrainingData.DIGITS
         self.early_stopping = -1
 
 def parse_args():

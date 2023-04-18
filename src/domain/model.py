@@ -1,5 +1,8 @@
 import numpy as np
+from tqdm import tqdm
+from signal import signal, SIGINT
 from typing import List, Tuple
+import matplotlib.pyplot as plt
 
 from src.domain.layer import Layer, InputLayer
 from  src.accuracy_measures import compute_accuracy, compute_loss, compute_accuracy_for_observation
@@ -23,6 +26,26 @@ def divide_data_to_batches(inputs: np.ndarray, batch_size: int) -> np.ndarray:
 
     return np.split(inputs_random, batch_no)
 
+def plot_accuracy_loss(accuracy: List[float], loss:List[float], val_accuracy:List[float], val_loss:List[float]):
+    epochs = list(range(len(accuracy)))
+
+    fig = plt.figure("Accuracy & Loss statistics")
+    ax_acc = fig.add_subplot(1, 2, 1)
+    ax_loss = fig.add_subplot(1, 2, 2)
+    ax_acc.plot(epochs, accuracy, '-b', label="Train Accuracy")
+    ax_acc.plot(epochs, val_accuracy, '-r', label="Validation Accuracy")
+    ax_acc.legend(loc = 'upper left', frameon=False)
+    ax_acc.set_xlabel("Epoch")
+    ax_acc.set_ylabel("Accuracy")
+
+    ax_loss.plot(epochs, loss, '-b', label="Train Loss")
+    ax_loss.plot(epochs, val_loss, '-r', label="Validation Loss")
+    ax_loss.legend(loc = 'upper left', frameon=False)
+    ax_loss.set_xlabel("Epoch")
+    ax_loss.set_ylabel("Loss")
+
+    fig.show()
+
 # -------------------------- NETWORK MODEL ------------------------------
 
 class Model:
@@ -34,6 +57,9 @@ class Model:
     def __init__(self, layers: List[Layer]) -> None:
         assert(type(layers[0]) is InputLayer)
         self.layers = layers
+
+        self.stop_training = False
+        signal(SIGINT, self.stop)
 
         for idx, layer in enumerate(self.layers):
             if not idx: continue
@@ -127,10 +153,16 @@ class Model:
                              momentum: float,
                              early_stopping_threshold: int) -> None:
         
-        # iterating based on the number of epochs
         early_stopping = early_stopping_threshold
         previous_accuracy = 0
+        accuracy_per_epoch = []
+        val_accuracy_per_epoch = []
+        loss_per_epoch = []
+        val_loss_per_epoch = []
+
+        # iterating based on the number of epochs
         for epoch in range(epochs):
+            if self.stop_training: break
             total_loss = 0          # total loss for a given epoch
             results = []            # results obtained for epoch (used to compute the accuracy)
             weight_diffs = None     # differences in weights for given iteration
@@ -152,16 +184,24 @@ class Model:
 
             # computing accuracy and printing results of the iteration
             accuracy = compute_accuracy(expected_outputs, results)
+            total_loss /= inputs.shape[0]
             if accuracy <= previous_accuracy:
                 early_stopping -= 1
             else:
                 early_stopping = early_stopping_threshold
             previous_accuracy = accuracy
 
-            print(f"Epoch: {epoch}, Accuracy: {accuracy}, Loss: {total_loss}")
+            val_accuracy, val_loss = self.__test__(val_inputs, val_expected_outputs)
+            accuracy_per_epoch.append(accuracy)
+            val_accuracy_per_epoch.append(val_accuracy)
+            loss_per_epoch.append(total_loss)
+            val_loss_per_epoch.append(val_loss)
+
+            print(f"Epoch: {epoch}, Accuracy: {accuracy}, Loss: {total_loss}, Val_Accuracy: {val_accuracy}, Val_Loss: {val_loss}")
             if early_stopping == 0:
                 print(f"-- Early stopping --")
                 break
+        plot_accuracy_loss(accuracy_per_epoch, loss_per_epoch, val_accuracy_per_epoch, val_loss_per_epoch)
 
 
     # Method trains the model in a mini-batch manner (meaning that the data is divided into batches and weights are updated after a given batch is processed)
@@ -177,6 +217,8 @@ class Model:
                           epochs: int, 
                           inputs: np.ndarray, 
                           expected_outputs: np.ndarray, 
+                          val_inputs: np.ndarray,
+                          val_expected_outputs: np.ndarray,
                           learn_rate: float, 
                           momentum: float,
                           early_stopping_threshold: int,
@@ -184,10 +226,16 @@ class Model:
         # dividing data into batches
         batches = divide_data_to_batches(inputs, batch_size)
 
-        # iterating based on the number of epochs
         early_stopping = early_stopping_threshold
         previous_accuracy = 0
+        accuracy_per_epoch = []
+        val_accuracy_per_epoch = []
+        loss_per_epoch = []
+        val_loss_per_epoch = []
+
+        # iterating based on the number of epochs
         for epoch in range(epochs):
+            if self.stop_training: break
             total_loss = 0                  # total loss for a given iteration
             correct_predictions = 0         # number of correct predictions (used in the accuracy)
 
@@ -222,15 +270,48 @@ class Model:
 
             # computing accuracy and printing result of the iteration
             accuracy = correct_predictions / len(expected_outputs)
+            total_loss /= inputs.shape[0]
             if accuracy <= previous_accuracy:
                 early_stopping -= 1
             else:
                 early_stopping = early_stopping_threshold
             previous_accuracy = accuracy
 
-            print(f"Epoch: {epoch}, Accuracy: {accuracy}, Loss: {total_loss}")
+            val_accuracy, val_loss = self.__test__(val_inputs, val_expected_outputs)
+            accuracy_per_epoch.append(accuracy)
+            val_accuracy_per_epoch.append(val_accuracy)
+            loss_per_epoch.append(total_loss)
+            val_loss_per_epoch.append(val_loss)
+
+            print(f"Epoch: {epoch}, Accuracy: {accuracy}, Loss: {total_loss}, Val_Accuracy: {val_accuracy}, Val_Loss: {val_loss}")
             if early_stopping == 0:
                 print(f"-- Early stopping --")
                 break
+        plot_accuracy_loss(accuracy_per_epoch, loss_per_epoch, val_accuracy_per_epoch, val_loss_per_epoch)
 
+    def __test__(self, inputs: np.ndarray, expected_outputs: np.ndarray, print_stats = False):
+        total_loss = 0
+        correct_predictions = 0
 
+        # iterating over all samples
+        for idx in range(len(inputs)):
+            inputs_sample = inputs[idx]         
+            expected_output = expected_outputs[idx]
+
+            # getting predicted output based of forward propagation
+            outputs = self.__forward__(inputs_sample)
+            
+            # computing total loss, checking predictions
+            total_loss += compute_loss(expected_output, outputs)
+            correct_predictions += compute_accuracy_for_observation(expected_output, outputs)
+
+        accuracy = correct_predictions / len(expected_outputs)
+        total_loss /= inputs.shape[0]
+
+        if print_stats:
+            print(f"Test results - Accuracy: {accuracy}, Loss: {total_loss}")
+        return accuracy, total_loss
+        
+    def stop(self):
+        if self.stop_training: exit(0)
+        self.stop_training = True

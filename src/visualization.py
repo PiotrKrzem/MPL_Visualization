@@ -1,9 +1,8 @@
 import numpy as np
-
-from tqdm import tqdm
 from sys import stdout
+from typing import List
+from random import randint
 from dataclasses import dataclass
-from typing import Any, List, Tuple, Dict
 
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
@@ -22,7 +21,7 @@ MODEL_DEPTH_PX = 40
 MODEL_NEURONS_DISTANCE_PX_FIRST_LAST_LAYER = 5
 MODEL_NEURONS_DISTANCE_PX = 20
 NOISE_AMOUNT = MODEL_NEURONS_DISTANCE_PX // 10
-NOISE_AMOUNT = 0
+NOISE_AMOUNT = 2
 SEAPARATE_FIRST_LAST_LAYER = 2
 @dataclass
 class NeuronMarkersData:
@@ -36,8 +35,10 @@ class ConnectionMarkerData:
     marker: Line3DCollection
 
 class Visualization:
-    def __init__(self, model: Model) -> None:
+    def __init__(self, model: Model, inputs:np.ndarray, outputs: np.ndarray) -> None:
         self.model = model
+        self.inputs = inputs
+        self.outputs = outputs
 
         self.prepare_interface()
         self.prepare_markers()
@@ -143,15 +144,22 @@ class Visualization:
             )
 
     def update(self):
-        output = np.random.rand(self.model.layers[0].output_size) #TODO SWAP with data or smth
+        idx = randint(0, self.inputs.shape[0] - 1)
+        output = self.inputs[idx]
+        expected_output = self.outputs[idx]
+        print(f"Input data: \n{output}\nExpected output: \n{expected_output}")
+
         for layer_idx, layer in enumerate(self.model.layers):
             output_size = layer.output_size
-            output = np.random.rand(output_size) #TODO REMOVE and activate stuff below
-            # if layer_idx:
-            #     output = layer(output)
+            # output = np.random.rand(output_size) #TODO REMOVE and activate stuff below
+            if layer_idx:
+                output = layer(output)
+
+            normalized_output = output - output.min()
+            normalized_output = normalized_output / normalized_output.max()
 
             # if layer_idx == 0 or layer_idx == len(self.model.layers) - 1:
-            color = np.tile(np.array([[1,1,1]]), (output_size, 1)) * np.tile(output[np.newaxis].T, 3)
+            color = np.tile(np.array([[1,1,1]]), (output_size, 1)) * np.tile(normalized_output[np.newaxis].T, 3)
             # else:
             #     color = np.tile(np.array([[0,0,1]]), (output_size, 1)) * np.tile(output[np.newaxis].T, 3)
             # color = np.maximum(color, 0.5)
@@ -169,21 +177,17 @@ class Visualization:
 
             next_layer_output_size = self.model.layers[layer_idx + 1].output_size
             color_rgba = np.tile(color_rgba, (1,1,next_layer_output_size)).reshape(output_size * next_layer_output_size,4)
-            widths = np.tile(output, (1,next_layer_output_size)).reshape(output_size * next_layer_output_size)
+            widths = np.tile(normalized_output, (1,next_layer_output_size)).reshape(output_size * next_layer_output_size)
             self.layers_connections_data[layer_idx].marker.set_color(color_rgba) # NOT layer_idx + 1 because this array's size is one less
             self.layers_connections_data[layer_idx].marker.set_linewidth(widths)
+
+        print(f"Output: \n{output}")
         self.figure.canvas.draw()
 
     def on_key_press(self, event):
         stdout.flush()
         if event.key == 'x':
             self.update()
-        elif event.key == 'c':
-            self.start_auto_walk()
-        elif event.key == 'v':
-            self.stop_auto_walk()
-        elif event.key == 'z':
-            self.toggle_rendering()
 
     def on_mouse_press(self, event):
         return
