@@ -1,9 +1,8 @@
 import numpy as np
-
-from domain.layer import Layer
 from typing import List, Tuple
-from accuracy_measures import compute_accuracy, compute_loss, compute_accuracy_for_observation
 
+from src.domain.layer import Layer, InputLayer
+from  src.accuracy_measures import compute_accuracy, compute_loss, compute_accuracy_for_observation
 
 # ----------------------- HELPER METHODS ------------------------------
 
@@ -24,7 +23,6 @@ def divide_data_to_batches(inputs: np.ndarray, batch_size: int) -> np.ndarray:
 
     return np.split(inputs_random, batch_no)
 
-
 # -------------------------- NETWORK MODEL ------------------------------
 
 class Model:
@@ -33,11 +31,13 @@ class Model:
     # Parameters:
     # layers     - layers with which the model is constructed
     # input_size - size of the input data
-    def __init__(self, layers: List[Layer], input_size: int) -> None:
+    def __init__(self, layers: List[Layer]) -> None:
+        assert(type(layers[0]) is InputLayer)
         self.layers = layers
 
         for idx, layer in enumerate(self.layers):
-            layer.__construct__(layers[idx - 1].output_size if idx else input_size)
+            if not idx: continue
+            layer.__construct__(layers[idx - 1].output_size)
 
     # Method performs forward propagation
     #
@@ -48,7 +48,7 @@ class Model:
         outputs = [input_row]                   # outputs stores corresponding outputs of each layer
 
         for layer in self.layers:
-            input = layer.__call__(input)       # activating neurons for given input
+            input = layer(input)       # activating neurons for given input
             outputs.append(input)               # appending the output of the given layer
 
         return outputs
@@ -206,4 +206,5 @@ class Model:
             # computing accuracy and printing result of the iteration
             accuracy = correct_predictions / len(expected_outputs)
             print(f"Epoch: {epoch}, Accuracy: {accuracy}, Loss: {total_loss}")
+
 
