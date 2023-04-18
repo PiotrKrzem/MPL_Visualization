@@ -121,9 +121,11 @@ class Model:
                              epochs: int, 
                              inputs: np.ndarray, 
                              expected_outputs: np.ndarray, 
+                             val_inputs: np.ndarray,
+                             val_expected_outputs: np.ndarray,
                              learn_rate: float, 
                              momentum: float,
-                             early_stopping_threshold) -> None:
+                             early_stopping_threshold: int) -> None:
         
         # iterating based on the number of epochs
         early_stopping = early_stopping_threshold
@@ -157,7 +159,7 @@ class Model:
             previous_accuracy = accuracy
 
             print(f"Epoch: {epoch}, Accuracy: {accuracy}, Loss: {total_loss}")
-            if not early_stopping:
+            if early_stopping == 0:
                 print(f"-- Early stopping --")
                 break
 
@@ -227,7 +229,7 @@ class Model:
             previous_accuracy = accuracy
 
             print(f"Epoch: {epoch}, Accuracy: {accuracy}, Loss: {total_loss}")
-            if not early_stopping:
+            if early_stopping == 0:
                 print(f"-- Early stopping --")
                 break
 

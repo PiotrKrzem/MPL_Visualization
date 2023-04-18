@@ -1,4 +1,5 @@
 import numpy as np
+from sklearn.model_selection import train_test_split
 
 from os import path
 from typing import Tuple
@@ -77,6 +78,19 @@ class TrainingData(Enum):
     LENSES = import_lenses_data()
     CARS = import_cars_data()
     BANKNOTES = import_banknotes_data()
+
+def train_val_test_split(X, Y, train_ratio = 0.8, validation_ratio = 0.1, test_ratio = 0.1):
+    assert(train_ratio + validation_ratio + test_ratio == 1.0)
+
+
+    # train is now 75% of the entire data set
+    x_train, x_test, y_train, y_test = train_test_split(X, Y, test_size=1 - train_ratio)
+
+    # test is now 10% of the initial data set
+    # validation is now 15% of the initial data set
+    x_val, x_test, y_val, y_test = train_test_split(x_test, y_test, test_size=test_ratio/(test_ratio + validation_ratio)) 
+
+    return x_train, y_train, x_val, y_val, x_test, y_test
 
 if __name__ == "__main__":
     print(TrainingData.LENSES.value)

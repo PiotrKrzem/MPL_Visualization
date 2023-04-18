@@ -38,7 +38,7 @@ class Arguments:
         self.learning_rate = 0.001
         self.momentum = 0.1
         self.dataset = TrainingData.LENSES
-        self.early_stopping = 3
+        self.early_stopping = -1
 
 def parse_args():
     opts, _ = getopt.getopt(sys.argv[1:], "h:n:f:b:e:l:m:d:")

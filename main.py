@@ -2,7 +2,9 @@ import time
 from typing import List
 
 from src.argparser import parse_args
+from src.data.loader import train_val_test_split
 from src.domain.model import Model
+from src.visualization import Visualization
 from src.domain.layer import LayerActivation, Layer, InputLayer
 
 # ----------------------- HELPER METHODS ------------------------------
@@ -41,12 +43,13 @@ def main() -> None:
                              classes_no
     )
 
-    time.sleep(3)
+    x_train, y_train, x_val, y_val, x_test, y_test = train_val_test_split(inputs, outputs)
 
     if arguments.batch_size == 0:
-        model.__train_stochastic__(arguments.epochs, inputs, outputs, arguments.learning_rate, arguments.momentum, arguments.early_stopping)
+        model.__train_stochastic__(arguments.epochs, x_train, y_train, x_val, y_val, arguments.learning_rate, arguments.momentum, arguments.early_stopping)
     else:
-        model.__train_batches__(arguments.epochs, inputs, outputs, arguments.learning_rate, arguments.momentum, arguments.early_stopping, arguments.batch_size)
+        model.__train_batches__(arguments.epochs, x_train, y_train, x_val, y_val, arguments.learning_rate, arguments.momentum, arguments.early_stopping, arguments.batch_size)
 
+    Visualization(model)
 if __name__ == "__main__":
     main()
